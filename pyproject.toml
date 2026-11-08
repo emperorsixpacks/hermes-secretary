@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hermes-secretary"
+version = "0.1.0"
+description = "Hermes plugin: join Google Meet, capture captions/transcripts, manage multi-account profiles."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "playwright>=1.40",
+]
+
+[project.optional-dependencies]
+dev = []
+
+# Hermes pip-plugin entry points (if installed as a package)
+[project.entry-points."hermes_agent.plugins"]
+hermes-secretary = "hermes_secretary_plugin:register"
+
+[project.entry-points."hermes_agent.plugin_capabilities"]
+hermes-secretary = "hermes_secretary_plugin:capabilities"
+
+[tool.setuptools]
+py-modules = ["hermes_secretary_plugin", "capture", "cli"]

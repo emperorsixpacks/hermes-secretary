@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 180" role="img" aria-labelledby="title desc">
+  <title id="title">Hermes Secretary</title>
+  <desc id="desc">Logo for Hermes Secretary, a Google Meet caption secretary plugin for Hermes Agent.</desc>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1f2937"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="a" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#22c55e"/>
+    </linearGradient>
+  </defs>
+  <rect x="10" y="10" width="700" height="160" rx="24" fill="url(#g)" stroke="#334155" stroke-width="2"/>
+  <g transform="translate(42,40)">
+    <rect x="0" y="10" width="96" height="68" rx="14" fill="#0f172a" stroke="#475569" stroke-width="2"/>
+    <rect x="14" y="24" width="68" height="40" rx="8" fill="#111827"/>
+    <path d="M28 36h40M28 46h40M28 56h24" stroke="url(#a)" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="82" cy="64" r="13" fill="#ef4444"/>
+    <path d="M76 64h12M82 58v12" stroke="#fff" stroke-width="2.8" stroke-linecap="round"/>
+  </g>
+  <g font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+    <text x="170" y="78" fill="#f8fafc" font-size="44" font-weight="700">Hermes Secretary</text>
+    <text x="172" y="112" fill="#cbd5e1" font-size="20">Google Meet capture &amp; transcripts for Hermes Agent</text>
+    <text x="172" y="140" fill="#94a3b8" font-size="15">Tagged account profiles · async background capture · plugin-native CLI/tools</text>
+  </g>
+</svg>

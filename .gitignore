@@ -1,0 +1,12 @@
+node_modules/
+secret/
+profile/
+join-test-screenshot.png
+*.log
+.DS_Store
+
+__pycache__/
+*.pyc
+
+.claude/
+join-test-screenshot.png
