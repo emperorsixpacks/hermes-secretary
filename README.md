@@ -3,10 +3,13 @@
 </p>
 
 # Hermes Secretary
+**Google Meet secretary for Hermes Agent**
 
-Hermes Secretary is a [Hermes Agent](https://hermes-agent.nousresearch.com/) plugin that can join Google Meet as a selected account profile, capture live captions in the background, and expose transcript/status tools to Hermes.
+Join meetings with tagged account profiles, capture live captions asynchronously, and return transcripts to the agent.
 
-It is built for the "meeting secretary" workflow: keep capture async, avoid blocking the agent, support multiple signed-in Google accounts via tagged browser profiles, and make it easy to install through Hermes' native plugin system.
+**License:** MIT · **Built for:** Hermes Agent · **Capture:** Google Meet live captions · **Profiles:** Multi-account (`./secret/<account>/`) · **Runtime:** Python + Playwright · **Prototype:** TypeScript/Node
+
+Tagged profiles · async background capture · transcript tools · `hermes secretary` CLI · plugin-native integration
 
 > **Status:** early prototype. Caption scraping is best-effort because Google Meet's DOM/selectors change frequently. Use only for meetings you are authorized to join and follow applicable consent, recording, and transcription rules.
 
