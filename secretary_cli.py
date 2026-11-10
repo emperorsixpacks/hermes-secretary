@@ -1,6 +1,6 @@
 """Hermes CLI integration for hermes-secretary.
 
-Adds `hermes secretary ...` for installing prerequisites and listing saved profiles.
+Adds `hermes secretary ...` for installing prerequisites.
 Joining is done as a guest (no Google sign-in).
 """
 
@@ -12,48 +12,8 @@ import sys
 from pathlib import Path
 from typing import Any, Optional
 
-try:
-    from .secretary_capture import list_secret_accounts
-except ImportError:
-    from secretary_capture import list_secret_accounts
-
-
 def _plugin_root() -> Path:
     return Path(__file__).resolve().parent
-
-
-def _secret_root(args) -> Path:
-    configured = getattr(args, "secret_dir", None) or "./secret"
-    p = Path(str(configured))
-    if not p.is_absolute():
-        p = (_plugin_root() / p).resolve()
-    return p
-
-
-def _print(obj: Any) -> None:
-    print(json.dumps(obj, ensure_ascii=False, indent=2))
-
-
-def _sanitize_account(name: Optional[str]) -> Optional[str]:
-    if name is None:
-        return None
-    import re
-
-    cleaned = re.sub(r"[^a-zA-Z0-9._@-]+", "-", str(name).strip()).strip("-")
-    return cleaned or None
-
-
-def cmd_accounts(args) -> int:
-    root = _secret_root(args)
-    _print(
-        {
-            "ok": True,
-            "secret_root": str(root),
-            "accounts": list_secret_accounts(root),
-            "usage": "Join as a guest: secretary_join_meet with guest_name (no sign-in needed).",
-        }
-    )
-    return 0
 
 
 def cmd_install(args) -> int:
@@ -82,15 +42,11 @@ def register_cli(subparser) -> None:
     p_install = sub.add_parser("install", help="Install Secretary prerequisites (Playwright + Chromium) and link plugin")
     p_install.set_defaults(_secretary_handler=cmd_install)
 
-    p_accounts = sub.add_parser("accounts", help="List saved account/profile tags under the secret root")
-    p_accounts.add_argument("--secret-dir", default="./secret", help="Secret root (relative to plugin dir or absolute)")
-    p_accounts.set_defaults(_secretary_handler=cmd_accounts)
-
 
 def handle_cli(args) -> int:
     handler = getattr(args, "_secretary_handler", None)
     if handler is None:
-        print("Usage: hermes secretary {install|accounts} ...")
+        print("Usage: hermes secretary {install} ...")
         return 2
     return int(handler(args) or 0)
 

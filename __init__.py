@@ -4,9 +4,7 @@ Provides async-friendly (non-blocking) tools for joining Google Meet and
 capturing live captions. Long-running browser capture runs in a background
 thread; tool handlers return immediately with status.
 
-Multi-account: each account uses its own browser profile under
-  <secret_root>/<account>/  (default root: ./secret relative to plugin dir)
-Sign in once per account (headed), then reuse headless/headed as needed.
+Joins as an anonymous guest (Google blocks automated sign-in); the host admits the bot.
 """
 
 from __future__ import annotations
@@ -19,9 +17,9 @@ from pathlib import Path
 from typing import Any, Optional
 
 try:  # loaded by Hermes as a package (directory plugin)
-    from .secretary_capture import MeetCaptureManager, list_secret_accounts
+    from .secretary_capture import MeetCaptureManager
 except ImportError:  # loaded as a plain script/module from the check-out
-    from secretary_capture import MeetCaptureManager, list_secret_accounts
+    from secretary_capture import MeetCaptureManager
 
 
 def check_secretary_requirements() -> bool:
@@ -35,7 +33,7 @@ def check_secretary_requirements() -> bool:
     return importlib.util.find_spec("playwright") is not None
 
 # Single manager per Hermes process (Hermes loads plugin once).
-# One active capture at a time; account selects which saved profile to load.
+# One active capture at a time.
 _MANAGER = MeetCaptureManager()
 _CTX = None
 
@@ -53,58 +51,23 @@ def _cfg(name: str, default: Any = None) -> Any:
         return default
 
 
-def _secret_root() -> Path:
-    configured = _cfg("secret_dir", "./secret")
-    base = Path(getattr(_CTX, "plugin_base_dir", Path(__file__).resolve().parent))
-    p = Path(str(configured))
-    if not p.is_absolute():
-        p = (base / p).resolve()
-    return p
-
-
-def _sanitize_account(name: Optional[str]) -> Optional[str]:
-    if name is None:
-        return None
-    cleaned = re.sub(r"[^a-zA-Z0-9._@-]+", "-", str(name).strip()).strip("-")
-    return cleaned or None
-
-
-def _secret_dir(account: Optional[str] = None) -> str:
-    root = _secret_root()
-    account = _sanitize_account(account) or _sanitize_account(_cfg("default_account"))
-    if not account:
-        return str(root)
-    # Legacy "default" maps to root if it looks like an existing single profile.
-    if account == "default":
-        if any((root / n).exists() for n in ("Default", "Local State", "Preferences")) and not (root / "default").exists():
-            return str(root)
-    return str(root / account)
-
-
 JOIN_SCHEMA = {
     "name": "secretary_join_meet",
-    "description": "Join a Google Meet using a saved account profile and start caption capture in the background. Returns immediately; use secretary_status/secretary_get_transcript to monitor.  Google blocks automated sign-in, so pass guest_name to join anonymously.",
+    "description": "Join a Google Meet as a guest and start caption capture in the background. Returns immediately; use secretary_status/secretary_get_transcript to monitor. Google blocks automated sign-in, so the bot joins anonymously and the host must admit it.",
     "parameters": {
         "type": "object",
         "properties": {
             "meet": {"type": "string", "description": "Google Meet code (abc-defg-hij) or full https://meet.google.com/... URL."},
-            "account": {"type": "string", "description": "Account/profile name under secret root (e.g. work, personal, user@example.com). Each account has its own signed-in browser session."},
-            "guest_name": {"type": "string", "description": "Join as an anonymous guest with this display name (no Google sign-in needed; the host must admit the bot). Use this when no account is signed in."},
+            "guest_name": {"type": "string", "description": "Display name shown to the host when joining as a guest (default: Hermes Secretary)."},
             "headless": {"type": "boolean", "description": "Override headless mode (default from plugin config)."},
         },
         "required": ["meet"],
     },
 }
 
-ACCOUNTS_SCHEMA = {
-    "name": "secretary_list_accounts",
-    "description": "List available Google account browser profiles under the Hermes Secretary secret root. Use these account names with secretary_join_meet/account.",
-    "parameters": {"type": "object", "properties": {}, "required": []},
-}
-
 STATUS_SCHEMA = {
     "name": "secretary_status",
-    "description": "Get current Hermes Secretary capture status (account, state, meet, segment count, errors).",
+    "description": "Get current Hermes Secretary capture status (state, meet, segment count, errors).",
     "parameters": {"type": "object", "properties": {}, "required": []},
 }
 
@@ -134,41 +97,19 @@ START_SCHEMA = {
 }
 
 
-def secretary_list_accounts(args: dict, **kwargs) -> str:
-    try:
-        root = _secret_root()
-        accounts = list_secret_accounts(root)
-        return _json(
-            {
-                "ok": True,
-                "secret_root": str(root),
-                "accounts": accounts,
-                "default_account": _sanitize_account(_cfg("default_account")),
-                "usage": "Pass account to secretary_join_meet. Each account gets ./secret/<account>/ (or legacy ./secret/ as default). Sign in once with headless=false.",
-            }
-        )
-    except Exception as e:
-        return _json({"ok": False, "error": str(e)})
-
-
 def secretary_join_meet(args: dict, **kwargs) -> str:
     try:
         args = args or {}
         meet = args.get("meet")
         if not meet:
             return _json({"ok": False, "error": "Missing required argument: meet"})
-        account = _sanitize_account(args.get("account"))
         headless = args.get("headless")
         if headless is None:
             headless = bool(_cfg("headless", False))
         source = _cfg("capture_source", "google_meet_captions")
         if source != "google_meet_captions":
             return _json({"ok": False, "error": f"capture_source '{source}' not implemented yet; set capture_source=google_meet_captions"})
-        secret_dir = _secret_dir(account)
-        result = _MANAGER.start(str(meet), secret_dir=secret_dir, headless=bool(headless), account=account, guest_name=(str(args["guest_name"]).strip() if args.get("guest_name") else None))
-        result["account"] = account
-        result["secret_dir"] = secret_dir
-        result["secret_root"] = str(_secret_root())
+        result = _MANAGER.start(str(meet), headless=bool(headless), guest_name=(str(args.get("guest_name") or "").strip() or "Hermes Secretary"))
         result["capture_source"] = source
         result["note"] = "Runs in a background thread. Poll secretary_status / secretary_get_transcript."
         return _json(result)
@@ -187,8 +128,6 @@ def secretary_status(args: dict, **kwargs) -> str:
             {
                 "ok": True,
                 "status": st,
-                "secret_root": str(_secret_root()),
-                "secret_dir": st.get("secret_dir") or _secret_dir(st.get("account")),
             }
         )
     except Exception as e:
@@ -232,12 +171,11 @@ def register(ctx) -> None:
     tool_kwargs = dict(check_fn=check_secretary_requirements)
     ctx.register_tool(name="secretary_join_meet", toolset="hermes-secretary", schema=JOIN_SCHEMA, handler=secretary_join_meet, **tool_kwargs)
     ctx.register_tool(name="secretary_start_capture", toolset="hermes-secretary", schema=START_SCHEMA, handler=secretary_start_capture, **tool_kwargs)
-    ctx.register_tool(name="secretary_list_accounts", toolset="hermes-secretary", schema=ACCOUNTS_SCHEMA, handler=secretary_list_accounts)
     ctx.register_tool(name="secretary_status", toolset="hermes-secretary", schema=STATUS_SCHEMA, handler=secretary_status)
     ctx.register_tool(name="secretary_get_transcript", toolset="hermes-secretary", schema=TRANSCRIPT_SCHEMA, handler=secretary_get_transcript)
     ctx.register_tool(name="secretary_stop_capture", toolset="hermes-secretary", schema=STOP_SCHEMA, handler=secretary_stop_capture)
 
-    # CLI: `hermes secretary install|accounts ...`
+    # CLI: `hermes secretary install ...`
     try:
         try:
             from .secretary_cli import register_cli, handle_cli
@@ -246,8 +184,8 @@ def register(ctx) -> None:
 
         ctx.register_cli_command(
             name="secretary",
-            help="Hermes Secretary: install, manage Meet account profiles/tags, and join/capture setup",
-            description="Install prerequisites and add/list Google account browser profiles (tags) under ./secret so Secretary can join Google Meet as the right account.",
+            help="Hermes Secretary: install prerequisites for Meet guest capture",
+            description="Install Playwright and Chromium so Secretary can join Google Meet as a guest.",
             setup_fn=register_cli,
             handler_fn=handle_cli,
         )

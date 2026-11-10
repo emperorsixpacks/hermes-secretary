@@ -58,9 +58,6 @@ else
   echo "    Created symlink: $TARGET -> $ROOT"
 fi
 
-echo "==> Ensuring secret dir exists (gitignored)..."
-mkdir -p "$ROOT/secret"
-
 echo ""
 echo "✅ Setup complete."
 echo ""

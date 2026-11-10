@@ -1,6 +1,6 @@
 name: hermes-secretary
 version: 0.1.0
-description: "Meeting secretary for Hermes: join Google Meet with a selected account profile, capture live captions in the background, and retrieve transcripts. Multi-account profiles live under ./secret/<account>/ (plugin-relative, gitignored)."
+description: "Meeting secretary for Hermes: join Google Meet as a guest, capture live captions in the background, and retrieve transcripts."
 author: brewkeg
 platforms:
   - linux
@@ -12,7 +12,6 @@ provides_tools:
   - secretary_stop_capture
   - secretary_get_transcript
   - secretary_status
-  - secretary_list_accounts
 
 provides_hooks:
   - on_session_end
@@ -22,17 +21,10 @@ python_dependencies:
   - playwright>=1.40
 
 config_schema:
-  secret_dir:
-    type: string
-    default: "./secret"
-    description: "Secret root (relative to plugin dir or absolute). Each account uses ./secret/<account>/ for its own Google sign-in/profile; keep private."
-  default_account:
-    type: string
-    description: "Optional default account/profile name used when secretary_join_meet is called without account."
   headless:
     type: boolean
     default: false
-    description: "Run browser headless. Set false for first-time Google sign-in."
+    description: "Run browser headless. Keep false to watch the join and debug."
   capture_source:
     type: string
     enum: [google_meet_captions, whisper_local]

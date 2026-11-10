@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "hermes-secretary"
 version = "0.1.0"
-description = "Hermes plugin: join Google Meet, capture captions/transcripts, manage multi-account profiles."
+description = "Hermes plugin: join Google Meet, capture captions/transcripts."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

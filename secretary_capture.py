@@ -8,6 +8,8 @@ persisted to the plugin data dir.
 from __future__ import annotations
 
 import json
+import shutil
+import tempfile
 import threading
 import time
 from dataclasses import asdict, dataclass, field
@@ -23,21 +25,11 @@ class CaptionSegment:
     source: str = "google_meet_captions"
 
 
-def _sanitize_account(name: Optional[str]) -> Optional[str]:
-    if name is None:
-        return None
-    cleaned = "".join(c if c.isalnum() or c in "._@-" else "-" for c in str(name).strip())
-    cleaned = cleaned.strip("-")
-    return cleaned or None
-
-
 @dataclass
 class CaptureState:
     status: str = "idle"  # idle|starting|joining|capturing|stopping|stopped|error
-    account: Optional[str] = None
     meet_code: Optional[str] = None
     meet_url: Optional[str] = None
-    secret_dir: Optional[str] = None
     started_at: Optional[float] = None
     stopped_at: Optional[float] = None
     error: Optional[str] = None
@@ -72,7 +64,6 @@ class MeetCaptureManager:
                 segs = segs[-int(limit) :]
             return {
                 "ok": True,
-                "account": self._state.account,
                 "meet_code": self._state.meet_code,
                 "status": self._state.status,
                 "segments": segs,
@@ -83,31 +74,26 @@ class MeetCaptureManager:
         self,
         meet_code_or_url: str,
         *,
-        secret_dir: str,
         headless: bool = False,
-        account: Optional[str] = None,
         guest_name: Optional[str] = None,
     ) -> dict[str, Any]:
         meet_code = _normalize_meet_code(meet_code_or_url)
         meet_url = f"https://meet.google.com/{meet_code}"
-        account = _sanitize_account(account)
         with self._lock:
             if self._state.status in {"starting", "joining", "capturing"}:
                 return {"ok": False, "error": "Capture already running", "status": self.status()}
             self._state = CaptureState(
                 status="starting",
-                account=account,
                 meet_code=meet_code,
                 meet_url=meet_url,
-                secret_dir=secret_dir,
                 started_at=time.time(),
             )
             self._stop_event.clear()
 
         self._thread = threading.Thread(
             target=self._run,
-            args=(meet_code, meet_url, secret_dir, headless, account, guest_name),
-            name=f"hermes-secretary-{account or 'default'}-{meet_code}",
+            args=(meet_code, meet_url, headless, guest_name),
+            name=f"hermes-secretary-{meet_code}",
             daemon=True,
         )
         self._thread.start()
@@ -125,7 +111,6 @@ class MeetCaptureManager:
         data_dir.mkdir(parents=True, exist_ok=True)
         with self._lock:
             payload = {
-                "account": self._state.account,
                 "meet_code": self._state.meet_code,
                 "meet_url": self._state.meet_url,
                 "status": self._state.status,
@@ -133,13 +118,10 @@ class MeetCaptureManager:
                 "stopped_at": self._state.stopped_at,
                 "segments": list(self._state.segments),
             }
-            acct = self._state.account or "default"
             code = self._state.meet_code or "unknown"
-        name = f"transcript-{acct}-{code}-{int(time.time())}.json"
+        name = f"transcript-{code}-{int(time.time())}.json"
         out = data_dir / name
         out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-        latest = data_dir / f"transcript-{acct}-latest.json"
-        latest.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         (data_dir / "transcript-latest.json").write_text(
             json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
         )
@@ -161,19 +143,20 @@ class MeetCaptureManager:
             self._state.last_seen = text
             self._state.segments.append(asdict(CaptionSegment(speaker=None, text=text, ts=time.time())))
 
-    def _run(self, meet_code: str, meet_url: str, secret_dir: str, headless: bool, account: Optional[str], guest_name: Optional[str] = None) -> None:
+    def _run(self, meet_code: str, meet_url: str, headless: bool, guest_name: Optional[str] = None) -> None:
         try:
             from playwright.sync_api import sync_playwright
         except Exception as e:
             self._set(status="error", error=f"Playwright not available: {e}. Install plugin deps and run: playwright install chromium")
             return
 
-        Path(secret_dir).mkdir(parents=True, exist_ok=True)
+        # Throwaway browser profile: guest joins keep no session or cookies.
+        profile_dir = tempfile.mkdtemp(prefix="hermes-secretary-")
         try:
             with sync_playwright() as p:
                 self._set(status="joining")
                 context = p.chromium.launch_persistent_context(
-                    secret_dir,
+                    profile_dir,
                     headless=headless,
                     viewport={"width": 1280, "height": 720},
                     args=["--no-sandbox", "--disable-setuid-sandbox"] if headless else [],
@@ -186,12 +169,13 @@ class MeetCaptureManager:
                 _handle_join_screen(page, guest_name)
                 _mute_av(page)
                 _try_enable_captions(page)
-                self._set(status="capturing", account=account)
+                self._set(status="capturing")
                 self._capture_loop(page)
                 context.close()
         except Exception as e:
             self._set(status="error", error=str(e))
         finally:
+            shutil.rmtree(profile_dir, ignore_errors=True)
             self._context = None
             self._page = None
             with self._lock:
@@ -254,30 +238,6 @@ def _normalize_meet_code(value: str) -> str:
         v = v.split("meet.google.com/", 1)[1]
     v = v.replace("meet/", "").split("?", 1)[0].split("#", 1)[0].strip("/")
     return v
-
-
-def list_secret_accounts(secret_root: str | Path) -> list[dict[str, Any]]:
-    """List available account profile directories under the secret root."""
-    root = Path(secret_root)
-    if not root.exists():
-        return []
-    accounts: list[dict[str, Any]] = []
-    # Legacy single-profile layout: files/dirs directly in ./secret (not account folders)
-    # are treated as a "default" profile.
-    has_legacy = any((root / name).exists() for name in ("Default", "Local State", "Preferences"))
-    if has_legacy:
-        accounts.append({"account": "default", "path": str(root), "legacy": True})
-    for child in sorted(root.iterdir()):
-        if not child.is_dir():
-            continue
-        if child.name.startswith("."):
-            continue
-        # Heuristic: treat as an account dir if it contains browser/profile data or is non-empty.
-        has_profile = any((child / name).exists() for name in ("Default", "Local State", "Preferences"))
-        has_files = has_profile or any(child.iterdir())
-        if has_files:
-            accounts.append({"account": child.name, "path": str(child), "legacy": False})
-    return accounts
 
 
 def _fill_guest_name(page, guest_name: str) -> None:
