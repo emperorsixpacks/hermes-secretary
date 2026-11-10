@@ -10,6 +10,7 @@ from __future__ import annotations
 import getpass
 import html
 import json
+import os
 import shutil
 import socket
 import tempfile
@@ -172,10 +173,18 @@ class MeetCaptureManager:
                 self._page = page
                 page.goto(meet_url, wait_until="domcontentloaded", timeout=45000)
                 page.wait_for_timeout(4000)
+                _debug_shot(page, "1-landing")
                 _handle_join_screen(page, display_name)
+                page.wait_for_timeout(3000)
+                _debug_shot(page, "2-after-join-click")
+                outcome, detail = self._wait_for_admission(page)
+                _debug_shot(page, f"3-{outcome}")
+                if outcome != "joined":
+                    self._set(status="error", error=detail)
+                    context.close()
+                    return
                 _mute_av(page)
                 _try_enable_captions(page)
-                self._set(status="capturing")
                 self._capture_loop(page)
                 context.close()
         except Exception as e:
@@ -188,6 +197,35 @@ class MeetCaptureManager:
                 if self._state.status not in {"error"}:
                     self._state.status = "stopped"
                 self._state.stopped_at = time.time()
+
+    def _wait_for_admission(self, page, timeout_s: float = 180.0) -> tuple[str, str]:
+        """Wait until we are really inside the call. Returns (outcome, detail).
+
+        outcome: joined | blocked | denied | timeout | stopped
+        """
+        blocked_markers = ("can't join this video call", "cannot join this video call", "unable to join")
+        denied_markers = ("denied your request", "you were denied", "removed from the meeting", "meeting has ended", "call has ended")
+        deadline = time.time() + timeout_s
+        self._set(status="waiting_for_admission")
+        while time.time() < deadline:
+            if self._stop_event.is_set():
+                return "stopped", "Stopped before joining"
+            try:
+                if page.locator('button[aria-label*="Leave call" i]').first.is_visible(timeout=500):
+                    self._set(status="capturing")
+                    return "joined", ""
+                body = (page.inner_text("body", timeout=2000) or "").lower()
+            except Exception:
+                body = ""
+            if any(m in body for m in blocked_markers):
+                return "blocked", (
+                    "Google Meet refused the join (\"You can't join this video call\"). The meeting does not allow "
+                    "anonymous guests or was not admitted by the host; set the meeting access to Open or have the host invite/admit the bot."
+                )
+            if any(m in body for m in denied_markers):
+                return "denied", "The host denied the request or the meeting ended."
+            time.sleep(2)
+        return "timeout", f"Not admitted to the meeting within {int(timeout_s)}s (waiting for the host to admit the bot)."
 
     def _capture_loop(self, page) -> None:
         # Google Meet caption DOM changes often; try several selectors.
@@ -301,6 +339,18 @@ def _virtual_camera_script(svg: str) -> str:
   };
 })();
 """ % json.dumps(svg)
+
+
+def _debug_shot(page, label: str) -> None:
+    """If HERMES_SECRETARY_DEBUG_DIR is set, save a screenshot there (join debugging)."""
+    d = os.environ.get("HERMES_SECRETARY_DEBUG_DIR")
+    if not d:
+        return
+    try:
+        Path(d).mkdir(parents=True, exist_ok=True)
+        page.screenshot(path=str(Path(d) / f"{label}.png"))
+    except Exception:
+        pass
 
 
 def _fill_guest_name(page, guest_name: str) -> None:
