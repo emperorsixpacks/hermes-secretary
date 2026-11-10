@@ -86,6 +86,7 @@ class MeetCaptureManager:
         secret_dir: str,
         headless: bool = False,
         account: Optional[str] = None,
+        guest_name: Optional[str] = None,
     ) -> dict[str, Any]:
         meet_code = _normalize_meet_code(meet_code_or_url)
         meet_url = f"https://meet.google.com/{meet_code}"
@@ -105,7 +106,7 @@ class MeetCaptureManager:
 
         self._thread = threading.Thread(
             target=self._run,
-            args=(meet_code, meet_url, secret_dir, headless, account),
+            args=(meet_code, meet_url, secret_dir, headless, account, guest_name),
             name=f"hermes-secretary-{account or 'default'}-{meet_code}",
             daemon=True,
         )
@@ -160,7 +161,7 @@ class MeetCaptureManager:
             self._state.last_seen = text
             self._state.segments.append(asdict(CaptionSegment(speaker=None, text=text, ts=time.time())))
 
-    def _run(self, meet_code: str, meet_url: str, secret_dir: str, headless: bool, account: Optional[str]) -> None:
+    def _run(self, meet_code: str, meet_url: str, secret_dir: str, headless: bool, account: Optional[str], guest_name: Optional[str] = None) -> None:
         try:
             from playwright.sync_api import sync_playwright
         except Exception as e:
@@ -182,7 +183,7 @@ class MeetCaptureManager:
                 self._page = page
                 page.goto(meet_url, wait_until="domcontentloaded", timeout=45000)
                 page.wait_for_timeout(4000)
-                _handle_join_screen(page)
+                _handle_join_screen(page, guest_name)
                 _mute_av(page)
                 _try_enable_captions(page)
                 self._set(status="capturing", account=account)
@@ -279,8 +280,22 @@ def list_secret_accounts(secret_root: str | Path) -> list[dict[str, Any]]:
     return accounts
 
 
-def _handle_join_screen(page) -> None:
+def _fill_guest_name(page, guest_name: str) -> None:
+    # Anonymous (not signed in) joiners must enter a display name first.
+    for sel in ('input[aria-label*="name" i]', 'input[placeholder*="name" i]', 'input[type="text"]'):
+        try:
+            loc = page.locator(sel).first
+            if loc.is_visible(timeout=3000):
+                loc.fill(guest_name, timeout=3000)
+                return
+        except Exception:
+            pass
+
+
+def _handle_join_screen(page, guest_name: Optional[str] = None) -> None:
     # Best-effort: selectors vary by locale/UI version.
+    if guest_name:
+        _fill_guest_name(page, guest_name)
     candidates = [
         'button:has-text("Join now")',
         'button:has-text("Ask to join")',

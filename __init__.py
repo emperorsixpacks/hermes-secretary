@@ -89,6 +89,7 @@ JOIN_SCHEMA = {
         "properties": {
             "meet": {"type": "string", "description": "Google Meet code (abc-defg-hij) or full https://meet.google.com/... URL."},
             "account": {"type": "string", "description": "Account/profile name under secret root (e.g. work, personal, user@example.com). Each account has its own signed-in browser session."},
+            "guest_name": {"type": "string", "description": "Join as an anonymous guest with this display name (no Google sign-in needed; the host must admit the bot). Use this when no account is signed in."},
             "headless": {"type": "boolean", "description": "Override headless mode (default from plugin config). Use false for first-time sign-in."},
         },
         "required": ["meet"],
@@ -164,7 +165,7 @@ def secretary_join_meet(args: dict, **kwargs) -> str:
         if source != "google_meet_captions":
             return _json({"ok": False, "error": f"capture_source '{source}' not implemented yet; set capture_source=google_meet_captions"})
         secret_dir = _secret_dir(account)
-        result = _MANAGER.start(str(meet), secret_dir=secret_dir, headless=bool(headless), account=account)
+        result = _MANAGER.start(str(meet), secret_dir=secret_dir, headless=bool(headless), account=account, guest_name=(str(args["guest_name"]).strip() if args.get("guest_name") else None))
         result["account"] = account
         result["secret_dir"] = secret_dir
         result["secret_root"] = str(_secret_root())
