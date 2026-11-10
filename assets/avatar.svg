@@ -20,7 +20,7 @@
     <path d="M76 64h12M82 58v12" stroke="#fff" stroke-width="2.8" stroke-linecap="round"/>
   </g>
   <g font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif" text-anchor="middle">
-    <text x="320" y="347" fill="#f8fafc" font-size="40" font-weight="700">{{NAME}}</text>
-    <text x="320" y="388" fill="#94a3b8" font-size="22">Hermes Secretary · taking meeting notes</text>
+    <text x="320" y="347" fill="#f8fafc" font-size="34" font-weight="700">{{NAME}}</text>
+    <text x="320" y="388" fill="#94a3b8" font-size="22">Taking meeting notes · powered by Hermes</text>
   </g>
 </svg>

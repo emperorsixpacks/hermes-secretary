@@ -58,7 +58,7 @@ JOIN_SCHEMA = {
         "type": "object",
         "properties": {
             "meet": {"type": "string", "description": "Google Meet code (abc-defg-hij) or full https://meet.google.com/... URL."},
-            "guest_name": {"type": "string", "description": "Display name shown in the meeting. Defaults to the OS username (or the PC name)."},
+            "guest_name": {"type": "string", "description": "Display name shown in the meeting. Defaults to "<OS username>'s Secretary"."},
             "headless": {"type": "boolean", "description": "Override headless mode (default from plugin config)."},
         },
         "required": ["meet"],

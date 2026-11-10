@@ -247,12 +247,12 @@ def _normalize_meet_code(value: str) -> str:
 
 
 def default_display_name() -> str:
-    """Bot display name: the OS username, falling back to the PC hostname."""
+    """Bot display name: "<username>'s Secretary" (hostname if no username)."""
     for getter in (getpass.getuser, socket.gethostname):
         try:
             name = (getter() or "").strip()
             if name:
-                return name
+                return f"{name}'s Secretary"
         except Exception:
             pass
     return "Hermes Secretary"
