@@ -360,12 +360,17 @@ def _debug_shot(page, label: str) -> None:
 
 def _fill_guest_name(page, guest_name: str) -> None:
     # Anonymous (not signed in) joiners must enter a display name first.
+    # NB: Locator.is_visible() ignores timeouts, so wait for the field explicitly.
     for sel in ('input[aria-label*="name" i]', 'input[placeholder*="name" i]', 'input[type="text"]'):
         try:
             loc = page.locator(sel).first
-            if loc.is_visible(timeout=3000):
-                loc.fill(guest_name, timeout=3000)
-                return
+            loc.wait_for(state="visible", timeout=10000)
+            loc.click(timeout=3000)
+            loc.fill(guest_name, timeout=3000)
+            if loc.input_value() != guest_name:
+                loc.fill("")
+                loc.press_sequentially(guest_name, delay=40)
+            return
         except Exception:
             pass
 
@@ -385,10 +390,10 @@ def _handle_join_screen(page, guest_name: Optional[str] = None) -> None:
     for sel in candidates:
         try:
             loc = page.locator(sel).first
-            if loc.is_visible(timeout=2000):
-                loc.click(timeout=3000)
-                page.wait_for_timeout(2000)
-                return
+            loc.wait_for(state="visible", timeout=4000)
+            loc.click(timeout=3000)
+            page.wait_for_timeout(2000)
+            return
         except Exception:
             pass
 
