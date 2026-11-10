@@ -10,3 +10,5 @@ __pycache__/
 
 .claude/
 join-test-screenshot.png
+build/
+hermes_secretary.egg-info/
