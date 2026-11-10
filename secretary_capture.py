@@ -164,10 +164,15 @@ class MeetCaptureManager:
                     profile_dir,
                     headless=headless,
                     viewport={"width": 1280, "height": 720},
-                    args=["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"]
+                    args=[
+                        "--use-fake-device-for-media-stream",
+                        "--use-fake-ui-for-media-stream",
+                        "--disable-blink-features=AutomationControlled",
+                    ]
                     + (["--no-sandbox", "--disable-setuid-sandbox"] if headless else []),
                 )
                 self._context = context
+                context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
                 context.add_init_script(_virtual_camera_script(render_avatar_svg(display_name)))
                 page = context.pages[0] if context.pages else context.new_page()
                 self._page = page
