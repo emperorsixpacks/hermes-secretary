@@ -22,22 +22,21 @@ python_dependencies:
   - playwright>=1.40
 
 config_schema:
-  type: object
-  properties:
-    secret_dir:
-      type: string
-      description: "Secret root (relative to plugin dir or absolute). Each account uses ./secret/<account>/ for its own Google sign-in/profile; keep private."
-      default: "./secret"
-    default_account:
-      type: string
-      description: "Optional default account/profile name used when secretary_join_meet is called without account."
-    headless:
-      type: boolean
-      description: "Run browser headless. Set false for first-time Google sign-in."
-      default: false
-    capture_source:
-      type: string
-      enum: [google_meet_captions, whisper_local]
-      default: google_meet_captions
+  secret_dir:
+    type: string
+    default: "./secret"
+    description: "Secret root (relative to plugin dir or absolute). Each account uses ./secret/<account>/ for its own Google sign-in/profile; keep private."
+  default_account:
+    type: string
+    description: "Optional default account/profile name used when secretary_join_meet is called without account."
+  headless:
+    type: boolean
+    default: false
+    description: "Run browser headless. Set false for first-time Google sign-in."
+  capture_source:
+    type: string
+    enum: [google_meet_captions, whisper_local]
+    default: google_meet_captions
+    description: "Capture adapter. whisper_local is planned but not implemented yet."
 
 capabilities: []

@@ -23,4 +23,4 @@ hermes-secretary = "hermes_secretary_plugin:register"
 hermes-secretary = "hermes_secretary_plugin:capabilities"
 
 [tool.setuptools]
-py-modules = ["hermes_secretary_plugin", "capture", "cli"]
+py-modules = ["hermes_secretary_plugin", "secretary_capture", "secretary_cli"]

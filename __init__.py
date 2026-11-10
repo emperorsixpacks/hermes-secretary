@@ -18,7 +18,10 @@ import re
 from pathlib import Path
 from typing import Any, Optional
 
-from capture import MeetCaptureManager, list_secret_accounts
+try:  # loaded by Hermes as a package (directory plugin)
+    from .secretary_capture import MeetCaptureManager, list_secret_accounts
+except ImportError:  # loaded as a plain script/module from the check-out
+    from secretary_capture import MeetCaptureManager, list_secret_accounts
 
 
 def check_secretary_requirements() -> bool:
@@ -235,7 +238,10 @@ def register(ctx) -> None:
 
     # CLI: `hermes secretary install|accounts|add-account ...`
     try:
-        from cli import register_cli, handle_cli
+        try:
+            from .secretary_cli import register_cli, handle_cli
+        except ImportError:
+            from secretary_cli import register_cli, handle_cli
 
         ctx.register_cli_command(
             name="secretary",

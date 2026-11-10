@@ -20,9 +20,9 @@ There is no test suite wired up. `package.json` scripts reference `vite`, which 
 ## Architecture
 
 - `hermes_secretary_plugin.py` — pip entrypoint shim only; re-exports `register` from `__init__.py`. On import failure it raises `RuntimeError` and `capabilities()` returns `[]`.
-- `__init__.py` — real `register(ctx)`, all tool schemas and handlers. `pyproject.toml` lists `hermes_secretary_plugin`, `capture`, `cli` as top-level `py-modules`, so these are **not** a package.
-- `capture.py` — `MeetCaptureManager`, `CaptureState`, `CaptionSegment`. Owns the Playwright thread.
-- `cli.py` — `hermes secretary` subcommands (`install`, `accounts`, `add-account`).
+- `__init__.py` — real `register(ctx)`, all tool schemas and handlers. `pyproject.toml` lists `hermes_secretary_plugin`, `secretary_capture`, `secretary_cli` as top-level `py-modules`, so these are **not** a package.
+- `secretary_capture.py` — `MeetCaptureManager`, `CaptureState`, `CaptionSegment`. Owns the Playwright thread.
+- `secretary_cli.py` — `hermes secretary` subcommands (`install`, `accounts`, `add-account`).
 - `src/` — TS prototype (`SecretaryPlugin`, `CaptureAdapter`); not used by the Python plugin.
 
 ## Hermes tools (toolset `hermes-secretary`)

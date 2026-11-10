@@ -133,7 +133,7 @@ npx tsx join-meet.ts https://meet.google.com/abc-defg-hij --account=work
 
 ```bash
 # Python compile check
-python3 -m py_compile __init__.py capture.py cli.py hermes_secretary_plugin.py
+python3 -m py_compile __init__.py secretary_capture.py secretary_cli.py hermes_secretary_plugin.py
 
 # Local setup helper
 ./setup.sh

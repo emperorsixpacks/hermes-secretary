@@ -12,7 +12,10 @@ import sys
 from pathlib import Path
 from typing import Any, Optional
 
-from capture import list_secret_accounts
+try:
+    from .secretary_capture import list_secret_accounts
+except ImportError:
+    from secretary_capture import list_secret_accounts
 
 
 def _plugin_root() -> Path:
