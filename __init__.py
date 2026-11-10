@@ -58,7 +58,7 @@ JOIN_SCHEMA = {
         "type": "object",
         "properties": {
             "meet": {"type": "string", "description": "Google Meet code (abc-defg-hij) or full https://meet.google.com/... URL."},
-            "guest_name": {"type": "string", "description": "Display name shown to the host when joining as a guest (default: Hermes Secretary)."},
+            "guest_name": {"type": "string", "description": "Display name shown in the meeting. Defaults to the OS username (or the PC name)."},
             "headless": {"type": "boolean", "description": "Override headless mode (default from plugin config)."},
         },
         "required": ["meet"],
@@ -109,7 +109,7 @@ def secretary_join_meet(args: dict, **kwargs) -> str:
         source = _cfg("capture_source", "google_meet_captions")
         if source != "google_meet_captions":
             return _json({"ok": False, "error": f"capture_source '{source}' not implemented yet; set capture_source=google_meet_captions"})
-        result = _MANAGER.start(str(meet), headless=bool(headless), guest_name=(str(args.get("guest_name") or "").strip() or "Hermes Secretary"))
+        result = _MANAGER.start(str(meet), headless=bool(headless), guest_name=(str(args.get("guest_name") or "").strip() or None))
         result["capture_source"] = source
         result["note"] = "Runs in a background thread. Poll secretary_status / secretary_get_transcript."
         return _json(result)

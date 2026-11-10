@@ -22,7 +22,7 @@ When an agent joins a Google Meet, the meeting's live captioning lives inside th
 
 Hermes Secretary wraps that whole loop into a single plugin:
 
-- **Guest join** — no Google sign-in (Google blocks automated sign-in). The bot joins with a display name and the host admits it.
+- **Guest join** — no Google sign-in (Google blocks automated sign-in). The bot joins under your OS username (or PC name, or `guest_name`), shows an avatar generated from `assets/avatar.svg` as its camera feed, and the host admits it.
 - **Async background capture** — `secretary_join_meet` returns instantly. A dedicated Playwright thread handles the meeting, mutes A/V, enables captions, and scrapes live captions as they render.
 - **Poison-to-transcript pipeline** — `secretary_get_transcript` returns captured segments; `secretary_stop_capture` persists a timestamped JSON plus a `latest` snapshot to the Hermes plugin data directory.
 - **Hermes-native** — registered as a plugin with tools, a `hermes secretary` CLI, and a session-cleanup hook so captures don't outlive the session.

@@ -7,8 +7,11 @@ persisted to the plugin data dir.
 
 from __future__ import annotations
 
+import getpass
+import html
 import json
 import shutil
+import socket
 import tempfile
 import threading
 import time
@@ -144,6 +147,7 @@ class MeetCaptureManager:
             self._state.segments.append(asdict(CaptionSegment(speaker=None, text=text, ts=time.time())))
 
     def _run(self, meet_code: str, meet_url: str, headless: bool, guest_name: Optional[str] = None) -> None:
+        display_name = (guest_name or "").strip() or default_display_name()
         try:
             from playwright.sync_api import sync_playwright
         except Exception as e:
@@ -159,14 +163,16 @@ class MeetCaptureManager:
                     profile_dir,
                     headless=headless,
                     viewport={"width": 1280, "height": 720},
-                    args=["--no-sandbox", "--disable-setuid-sandbox"] if headless else [],
+                    args=["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"]
+                    + (["--no-sandbox", "--disable-setuid-sandbox"] if headless else []),
                 )
                 self._context = context
+                context.add_init_script(_virtual_camera_script(render_avatar_svg(display_name)))
                 page = context.pages[0] if context.pages else context.new_page()
                 self._page = page
                 page.goto(meet_url, wait_until="domcontentloaded", timeout=45000)
                 page.wait_for_timeout(4000)
-                _handle_join_screen(page, guest_name)
+                _handle_join_screen(page, display_name)
                 _mute_av(page)
                 _try_enable_captions(page)
                 self._set(status="capturing")
@@ -240,6 +246,63 @@ def _normalize_meet_code(value: str) -> str:
     return v
 
 
+def default_display_name() -> str:
+    """Bot display name: the OS username, falling back to the PC hostname."""
+    for getter in (getpass.getuser, socket.gethostname):
+        try:
+            name = (getter() or "").strip()
+            if name:
+                return name
+        except Exception:
+            pass
+    return "Hermes Secretary"
+
+
+_AVATAR_PATH = Path(__file__).resolve().parent / "assets" / "avatar.svg"
+_FALLBACK_AVATAR = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480"><rect width="640" height="480" fill="#111827"/>'
+    '<text x="320" y="250" fill="#f8fafc" font-size="40" font-family="sans-serif" text-anchor="middle">{{NAME}}</text></svg>'
+)
+
+
+def render_avatar_svg(name: str) -> str:
+    try:
+        svg = _AVATAR_PATH.read_text(encoding="utf-8")
+    except Exception:
+        svg = _FALLBACK_AVATAR
+    return svg.replace("{{NAME}}", html.escape(name))
+
+
+def _virtual_camera_script(svg: str) -> str:
+    """Init script: getUserMedia(video) returns a canvas stream showing the avatar SVG."""
+    return """
+(() => {
+  const md = navigator.mediaDevices;
+  if (!md || !md.getUserMedia) return;
+  const W = 640, H = 480;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const img = new Image();
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(%s);
+  const draw = () => { try { ctx.drawImage(img, 0, 0, W, H); } catch (e) {} };
+  img.onload = draw;
+  setInterval(draw, 200);
+  const orig = md.getUserMedia.bind(md);
+  md.getUserMedia = async (c) => {
+    if (c && c.video) {
+      const stream = canvas.captureStream(10);
+      if (c.audio) {
+        try { (await orig({ audio: c.audio })).getAudioTracks().forEach(t => stream.addTrack(t)); } catch (e) {}
+      }
+      return stream;
+    }
+    return orig(c);
+  };
+})();
+""" % json.dumps(svg)
+
+
 def _fill_guest_name(page, guest_name: str) -> None:
     # Anonymous (not signed in) joiners must enter a display name first.
     for sel in ('input[aria-label*="name" i]', 'input[placeholder*="name" i]', 'input[type="text"]'):
@@ -276,7 +339,8 @@ def _handle_join_screen(page, guest_name: Optional[str] = None) -> None:
 
 
 def _mute_av(page) -> None:
-    for label_sub in ("Turn off microphone", "Turn off camera", "microphone", "camera"):
+    # Mute the mic only; the camera stays on to show the avatar image.
+    for label_sub in ("Turn off microphone", "microphone"):
         try:
             loc = page.locator(f'[aria-label*="{label_sub}"]').first
             if loc.is_visible(timeout=1000):

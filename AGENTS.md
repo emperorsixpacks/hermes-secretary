@@ -34,6 +34,7 @@ There is no test suite wired up. `package.json` scripts reference `vite`, which 
 ## Profiles
 
 - No sign-in: Google blocks automated sign-in, so the bot joins as a guest (`guest_name`) and the host must admit it.
+- Display name defaults to the OS username, else the hostname (`guest_name` overrides). The camera shows `assets/avatar.svg` (name filled in) via an in-page `getUserMedia` override; the mic is muted, the camera is left on.
 - Each capture uses a throwaway Chromium profile in a temp dir, deleted afterwards.
 
 ## Transcript output
