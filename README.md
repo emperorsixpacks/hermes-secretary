@@ -22,7 +22,7 @@ When an agent joins a Google Meet, the meeting's live captioning lives inside th
 
 Hermes Secretary wraps that whole loop into a single plugin:
 
-- **Tagged account profiles** — sign in once per Google account; each account reuses its own persistent browser profile under `./secret/<account>/`.
+- **Guest join** — no Google sign-in (Google blocks automated sign-in). The bot joins with a display name and the host admits it.
 - **Async background capture** — `secretary_join_meet` returns instantly. A dedicated Playwright thread handles the meeting, mutes A/V, enables captions, and scrapes live captions as they render.
 - **Poison-to-transcript pipeline** — `secretary_get_transcript` returns captured segments; `secretary_stop_capture` persists a timestamped JSON plus a per-account `latest` snapshot to the Hermes plugin data directory.
 - **Hermes-native** — registered as a plugin with tools, a `hermes secretary` CLI, and a session-cleanup hook so captures don't outlive the session.
@@ -31,8 +31,7 @@ Hermes Secretary wraps that whole loop into a single plugin:
 ## How it works
 
 ```text
-hermes secretary add-account <tag>   # opens a headed browser; sign in once
-secretary_join_meet { meet, account, headless:false }
+secretary_join_meet { meet, guest_name, headless:false }
   └─ Playwright persistent context (./secret/<account>/)
      ├─ normalize meet code → https://meet.google.com/<code>
      ├─ handle join screen / lobby
@@ -56,22 +55,12 @@ hermes plugins enable hermes-secretary
 
 > `hermes secretary install` runs `setup.sh` automatically (Python deps + Playwright Chromium + plugin link).
 
-### 2. Add an account (sign in once)
+### 2. Join a meeting
 
 ```bash
-hermes secretary add-account work
-```
-
-A headed browser opens → sign into Google → close the window. Repeat per account (`personal`, `client-email`, and so on). Headless sign-in generally fails.
-
-### 3. Join a meeting
-
-```bash
-secretary_list_accounts {}
-
 secretary_join_meet {
   "meet": "https://meet.google.com/abc-defg-hij",
-  "account": "work",
+  "guest_name": "Hermes Secretary",
   "headless": false
 }
 
@@ -96,7 +85,7 @@ npx tsx join-meet.ts https://meet.google.com/abc-defg-hij --account=work
 |---|---|---|
 | `secret_dir` | `./secret` | Secret/profile root. Each account uses `<secret_dir>/<account>/`. |
 | `default_account` | *(unset)* | Default account tag when `account` is omitted from `secretary_join_meet`. |
-| `headless` | `false` | Headless mode. Keep `false` for first-time sign-in and UI debugging. |
+| `headless` | `false` | Headless mode. Keep `false` for UI debugging. |
 | `capture_source` | `google_meet_captions` | Capture adapter. `whisper_local` is planned, not implemented. |
 
 ## Product status & roadmap

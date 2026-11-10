@@ -83,14 +83,14 @@ def _secret_dir(account: Optional[str] = None) -> str:
 
 JOIN_SCHEMA = {
     "name": "secretary_join_meet",
-    "description": "Join a Google Meet using a saved account profile and start caption capture in the background. Returns immediately; use secretary_status/secretary_get_transcript to monitor. First run for an account may require headed Google sign-in (headless=false).",
+    "description": "Join a Google Meet using a saved account profile and start caption capture in the background. Returns immediately; use secretary_status/secretary_get_transcript to monitor.  Google blocks automated sign-in, so pass guest_name to join anonymously.",
     "parameters": {
         "type": "object",
         "properties": {
             "meet": {"type": "string", "description": "Google Meet code (abc-defg-hij) or full https://meet.google.com/... URL."},
             "account": {"type": "string", "description": "Account/profile name under secret root (e.g. work, personal, user@example.com). Each account has its own signed-in browser session."},
             "guest_name": {"type": "string", "description": "Join as an anonymous guest with this display name (no Google sign-in needed; the host must admit the bot). Use this when no account is signed in."},
-            "headless": {"type": "boolean", "description": "Override headless mode (default from plugin config). Use false for first-time sign-in."},
+            "headless": {"type": "boolean", "description": "Override headless mode (default from plugin config)."},
         },
         "required": ["meet"],
     },
@@ -237,7 +237,7 @@ def register(ctx) -> None:
     ctx.register_tool(name="secretary_get_transcript", toolset="hermes-secretary", schema=TRANSCRIPT_SCHEMA, handler=secretary_get_transcript)
     ctx.register_tool(name="secretary_stop_capture", toolset="hermes-secretary", schema=STOP_SCHEMA, handler=secretary_stop_capture)
 
-    # CLI: `hermes secretary install|accounts|add-account ...`
+    # CLI: `hermes secretary install|accounts ...`
     try:
         try:
             from .secretary_cli import register_cli, handle_cli
